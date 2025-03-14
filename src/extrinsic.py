@@ -1,4 +1,3 @@
-import rospy
 import numpy as np
 from sensor_msgs.msg import PointCloud2
 import open3d as o3d
@@ -10,7 +9,7 @@ import random
 from utils import *
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation 
-
+import matplotlib.pyplot as plt
 
 # 체커보드 크기 설정 (내부 코너 개수)
 CHECKERBOARD = (4, 5)  # (가로, 세로)
@@ -163,11 +162,17 @@ for img_idx, file in enumerate(image_files):
         # 포인트 클라우드 변환
         pcd_frame.transform(init_transform)
         geometry_list.append(pcd_frame)
-
         pcd.transform(init_transform)
+        geometry_list.append(pcd)
+
+        if show_o3d:
+            o3d.visualization.draw_geometries(geometry_list, window_name="PointCloud", width=800, height=600)
+
         filtered_pcd = pcd.crop(aabb)
 
-        # o3d.visualization.draw_geometries([filtered_pcd], window_name="PointCloud", width=800, height=600)
+        if show_o3d:
+            o3d.visualization.draw_geometries([filtered_pcd], window_name="Filtered PointCloud", width=800, height=600)
+        
         # Dbscan 클러스터링 적용
         eps = 0.07  # 클러스터 간 거리 임계값
         min_points = 10  # 최소 클러스터 크기
@@ -235,6 +240,7 @@ for img_idx, file in enumerate(image_files):
         # Open3D 시각화 실행
         if show_o3d :
             o3d.visualization.draw_geometries(geometry_list, window_name="Plane Detection")
+            o3d.visualization.draw_geometries([best_plane_pcd, objp_pcd], window_name="Best Plane", width=800, height=600)
 
         # 체커보드와 평행한 평면 필터링
         radius = 0.75  # 필터링 반경
@@ -255,7 +261,7 @@ for img_idx, file in enumerate(image_files):
         # print("Initial transformation matrix:\n", init_transform)
         # ICP 수행
         unoptimized_image = image.copy()
-        lidar_to_cam = perform_icp(filtered_plane, objp_pcd, threshold=0.05, init_transform=icp_init_transform, visualize=show_o3d)
+        lidar_to_cam = perform_icp(camera_frame, pcd_frame, filtered_plane, objp_pcd, threshold=0.05, init_transform=icp_init_transform, visualize=show_o3d)
         # print("best plane pcd", best_plane_pcd)
         unoptimized_projection_img, projected_points = pcd_projection(unoptimized_image, filtered_plane, intrinsic, distortion, lidar_to_cam)
         pcd_list.append(filtered_plane)
@@ -269,14 +275,14 @@ for img_idx, file in enumerate(image_files):
         print(f"Projected image saved at: {result_path}")
         cv2.imwrite(result_path, unoptimized_projection_img2)
 
-        countour_img, contour_points = draw_contour(image, board_corners, rvec, tvec, intrinsic, distortion)
+        countour_img, contour_points = draw_contour(unoptimized_projection_img, board_corners, rvec, tvec, intrinsic, distortion)
         corner_list.append(board_corners)
         rvec_init, _ = cv2.Rodrigues(lidar_to_cam[:3, :3])
         tvec_init = lidar_to_cam[:3, 3].reshape(-1, 1)
         # 최적화 초기값 설정
         initial_guess = np.hstack((rvec_init.flatten(), tvec_init.flatten()))
         initial_guess_list.append(initial_guess)
-        iou_img = draw_iou(unoptimized_projection_img, projected_points, contour_points)
+        iou_img = draw_iou(countour_img, projected_points, contour_points)
         cv2.imwrite(f"./result/iou/iou_image_{img_idx}.jpg", iou_img)
         print(f"IOU image saved at: ./result/iou_image/iou_image_{img_idx}.jpg")
         image_T_list.append(T)
@@ -308,21 +314,29 @@ mean_tvec = np.mean(tvecs, axis=0)
 # 5. 평균 회전과 평균 이동을 결합한 초기 추정값 생성 (6차원 벡터)
 averaged_initial_guess = np.hstack((mean_rvec, mean_tvec))
 
+unit_transform = np.eye(4)
+init_rvec,_ = cv2.Rodrigues(unit_transform[:3, :3])
+init_tvec = unit_transform[:3, 3].reshape(-1, 1)
+# 초기 변환 행렬을 6차원 벡터로 변환
+initial_guess = np.hstack((init_rvec.flatten(), init_tvec.flatten()))
+
 print("Strarting optimization with IOU errors...")
+initial_cost = joint_iou_loss(initial_guess, pcd_list, corner_list, intrinsic, distortion, image_T_list)
+initial_cost = np.sum(initial_cost**2)
 
 iou_result = least_squares(
     joint_iou_loss, 
-    averaged_initial_guess, 
+    initial_guess, 
     args=(pcd_list, corner_list, intrinsic, distortion, image_T_list), 
     method='lm',
     loss='linear',
-    ftol=1e-12, xtol=1e-12, gtol=1e-12, 
-    max_nfev=10000,
     )
 
 print("최적화 결과:", iou_result.x)
 print("최적화 성공 여부:", iou_result.success)
+print("Initial cost:", initial_cost)
 print("Cost:", iou_result.cost)
+print(iou_result.message)
 # 최적화된 회전 및 이동 벡터
 optimized_rvec = iou_result.x[:3]
 optimized_tvec = iou_result.x[3:].reshape(-1, 1)
@@ -331,8 +345,12 @@ optimized_R, _ = cv2.Rodrigues(optimized_rvec)
 optimized_T = np.eye(4)
 optimized_T[:3, :3] = optimized_R
 optimized_T[:3, 3] = optimized_tvec.flatten()
+_optimized_T = optimized_T # 최적화된 변환 행렬
 optimized_T = optimized_T @ init_transform  # 초기 변환 행렬과 결합
 print("최적화된 변환 행렬:\n", optimized_T)
+#save optimized transform matrix
+print("Saving optimized transform matrix...")
+np.savetxt("iou_optimized_transform.txt", optimized_T, delimiter=",")
 
 # 최적화된 변환 행렬을 사용하여 포인트 클라우드 변환
 for i in range(len(image_files)):
@@ -344,7 +362,34 @@ for i in range(len(image_files)):
     print(f"IOU Optimized projected image saved at: {result_path}")
     cv2.imwrite(result_path, optimized_image)
 
+# 최적화된 평면 시각화
+for i in range(len(image_files)):
+    image = cv2.imread(image_files[i])
+    pcd = pcd_list[i]
+    #print("pcd:", pcd.has_points())
+    image_T = image_T_list[i]
+    image_rvec = image_T[:3, :3]
+    image_rvec = cv2.Rodrigues(image_rvec)[0]
+    image_tvec = image_T[:3, 3].reshape(-1, 1)
+    # 이미지에 최적화된 변환 적용
+    # print(board_corners)
+    plane_projection_img, projected_points = pcd_projection(image, pcd, intrinsic, distortion, _optimized_T)
+    # print("projected points:", projected_points)
+    countour_img, contour_points = draw_contour(plane_projection_img, board_corners, image_rvec, image_tvec, intrinsic, distortion)
+    optimized_image = draw_iou(countour_img, projected_points, contour_points)
+    result_path = f"./result/iou_optimized_plane/iou_optimized_plane_image_{i}.jpg"
+    print(f"IOU Optimized projected image saved at: {result_path}")
+    cv2.imwrite(result_path, optimized_image)
+
+
+
+plot_cost_history(iou_cost_history, "IOU Cost History")
+
+
 print("Strarting optimization with reprojection errors...")
+
+initial_cost = reprojection_error(initial_guess, pcd_list, corner_list, intrinsic, distortion, image_T_list)
+initial_cost = np.sum(initial_cost**2)
 
 reprojection_result = least_squares(
     reprojection_error, 
@@ -352,13 +397,17 @@ reprojection_result = least_squares(
     args=(pcd_list, corner_list, intrinsic, distortion, image_T_list), 
     method='lm',
     loss='linear',
-    ftol=1e-12, xtol=1e-12, gtol=1e-12, 
+    ftol=1e-15, xtol=1e-15, gtol=1e-15, 
     max_nfev=10000,
     )
 
 print("최적화 결과:", reprojection_result.x)
 print("최적화 성공 여부:", reprojection_result.success)
+print("Initial cost:", initial_cost)
 print("Cost:", reprojection_result.cost)
+
+plot_cost_history(reprojection_cost_history, "Reprojection Cost History")
+
 # 최적화된 회전 및 이동 벡터
 optimized_rvec = reprojection_result.x[:3]
 optimized_tvec = reprojection_result.x[3:].reshape(-1, 1)
@@ -369,6 +418,9 @@ optimized_T[:3, :3] = optimized_R
 optimized_T[:3, 3] = optimized_tvec.flatten()
 optimized_T = optimized_T @ init_transform  # 초기 변환 행렬과 결합
 print("최적화된 변환 행렬:\n", optimized_T)
+#save optimized transform matrix
+print("Saving optimized transform matrix...")
+np.savetxt("reprojection_optimized_transform.txt", optimized_T, delimiter=",")
 
 # 최적화된 변환 행렬을 사용하여 포인트 클라우드 변환
 for i in range(len(image_files)):
