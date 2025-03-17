@@ -336,6 +336,7 @@ print("최적화 결과:", iou_result.x)
 print("최적화 성공 여부:", iou_result.success)
 print("Initial cost:", initial_cost)
 print("Cost:", iou_result.cost)
+print("Average of residuals:", np.mean(iou_result.fun))
 print(iou_result.message)
 # 최적화된 회전 및 이동 벡터
 optimized_rvec = iou_result.x[:3]
