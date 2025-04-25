@@ -322,6 +322,7 @@ rvecs = np.array([guess[:3] for guess in initial_guess_list])
 rotations = Rotation.from_rotvec(rvecs)
 
 # 3. Quaternion 평균을 적용하여 평균 회전 계산
+# trasnform matrix로 평균하면 직교성 깨짐 -> 회전 벡터 평균을 사용
 mean_rotation = rotations.mean()
 mean_rvec = mean_rotation.as_rotvec()  # 평균 회전 벡터
 
@@ -338,13 +339,16 @@ init_tvec = unit_transform[:3, 3].reshape(-1, 1)
 # 초기 변환 행렬을 6차원 벡터로 변환
 initial_guess = np.hstack((init_rvec.flatten(), init_tvec.flatten()))
 
+#select init param 
+init_param = averaged_initial_guess
+
 print("Strarting optimization with IOU errors...")
-initial_cost = joint_iou_loss(averaged_initial_guess, pcd_list, corner_list, intrinsic, distortion, image_T_list)
+initial_cost = joint_iou_loss(init_param, pcd_list, corner_list, intrinsic, distortion, image_T_list)
 initial_cost = np.sum(initial_cost**2)
 
 iou_result = least_squares(
     joint_iou_loss, 
-    averaged_initial_guess, 
+    init_param, 
     args=(pcd_list, corner_list, intrinsic, distortion, image_T_list), 
     method='lm',
     loss='linear',
