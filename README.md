@@ -2,8 +2,6 @@
 
 ## How to use
 
----
-
 1. rosbag 녹화 
 2. data_extract.py → rosbag에서 데이터 추출
 3. [intrinsic_numpy.py](http://intrinsic.py) → 카메라 intrinsic 계산
@@ -14,7 +12,7 @@
 ## Example Images
 
 
-![Original image](docs/1.png)
-![Sample 2](docs/2.png)
-![Sample 3](docs/3.png)
-![Sample 4](docs/4.png)
+![Original image](docs/1.jpg)
+![Sample 2](docs/2.jpg)
+![Sample 3](docs/3.jpg)
+![Sample 4](docs/4.jpg)
