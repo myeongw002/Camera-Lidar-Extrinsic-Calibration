@@ -1,5 +1,6 @@
 ## Camera - Lidar Extrinsic Calibration based on IOU Optimization
 
+
 ## How to use
 
 1. rosbag 녹화 
@@ -9,10 +10,16 @@
 5. [extrinsic.py](http://extrinsic.py) → extrinsic parameter 계산
 
 
-## Example Images
+## Images
 
-
+Original image
 ![Original image](docs/1.jpg)
-![Sample 2](docs/2.jpg)
-![Sample 3](docs/3.jpg)
-![Sample 4](docs/4.jpg)
+
+Unoptimized IOU image
+![Unoptimized IOU image](docs/2.jpg)
+
+Optimized IOU image
+![Optimized IOU image](docs/3.jpg)
+
+Lidar projection image
+![Lidar projection image](docs/4.jpg)
