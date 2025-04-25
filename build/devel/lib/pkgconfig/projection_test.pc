@@ -1,8 +1,0 @@
-prefix=/home/myungw00/ROS/cali_ws/src/projection_test/build/devel
-
-Name: projection_test
-Description: Description of projection_test
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
