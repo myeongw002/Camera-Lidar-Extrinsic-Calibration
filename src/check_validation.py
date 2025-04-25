@@ -1,4 +1,3 @@
-import rospy
 import numpy as np
 from sensor_msgs.msg import PointCloud2
 import open3d as o3d
@@ -10,12 +9,12 @@ import glob
 CHECKERBOARD = (4, 5)  # (가로, 세로)
 
 # 원본 이미지 및 포인트 클라우드 경로
-image_path = "extrinsic_data/camera"
-pointcloud_path = "extrinsic_data/ouster"
+image_path = "extrinsic_data1/camera"
+pointcloud_path = "extrinsic_data1/ouster"
 
 # 유효한 데이터를 저장할 폴더
-valid_image_path = "extrinsic_data/valid_images"
-valid_pointcloud_path = "extrinsic_data/valid_pointclouds"
+valid_image_path = "extrinsic_data1/valid_images"
+valid_pointcloud_path = "extrinsic_data1/valid_pointclouds"
 
 os.makedirs(valid_image_path, exist_ok=True)  # 폴더 생성
 os.makedirs(valid_pointcloud_path, exist_ok=True)  # 폴더 생성
