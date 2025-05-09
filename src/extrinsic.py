@@ -121,7 +121,7 @@ for img_idx, file in enumerate(image_files):
                                     criteria=(cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
 
         # SolvePnP로 회전 및 이동 벡터 계산
-        _, rvec, tvec, _ = cv2.solvePnPRansac(objp, corners2, intrinsic, distortion)
+        _, rvec, tvec = cv2.solvePnP(objp, corners2, intrinsic, distortion)
 
         if show_image:
             # draw axis
