@@ -1,7 +1,7 @@
 # Camera - Lidar Extrinsic Calibration based on IOU Optimization
 
 ## Explanation
-https://www.notion.so/Camera-Lidar-Extrinsic-calibration-1b384728f3f1809596c3ce1e6ba3dbe1?pvs=4
+(https://fuschia-ambert-efa.notion.site/Camera-Lidar-Extrinsic-calibration-1b384728f3f1809596c3ce1e6ba3dbe1?source=copy_link)
 
 ## How to use
 
