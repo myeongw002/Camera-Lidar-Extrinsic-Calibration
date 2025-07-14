@@ -11,13 +11,16 @@ from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation 
 import matplotlib.pyplot as plt
 
+base_dir = "./result1"
+
 RESULT_DIRS = [
-    "./result1/unoptimized_plane",
-    "./result1/unoptimized_pcd",
-    "./result1/iou",
-    "./result1/iou_optimized",
-    "./result1/iou_optimized_plane",
+    base_dir + "/unoptimized_plane",
+    base_dir + "/unoptimized_pcd",
+    base_dir + "/iou",
+    base_dir + "/iou_optimized",
+    base_dir + "/iou_optimized_plane",
 ]
+
 for d in RESULT_DIRS:
     os.makedirs(d, exist_ok=True)
 
@@ -86,6 +89,7 @@ show_o3d = False
 
 initial_guess_list = []
 pcd_list = [] 
+img_list = []
 
 corner_list = []    
 image_T_list = []
@@ -249,6 +253,17 @@ for img_idx, file in enumerate(image_files):
                 best_plane = plane_model
                 best_plane_pcd = plane_pcd
 
+        if best_dot_product < 0.9:
+            print(f"No suitable plane found for image {img_idx} (dot product: {best_dot_product})")
+            continue
+
+        num_points = len(best_plane_pcd.points)
+        print(f"Best plane found for image {img_idx} with {num_points} points")
+
+        if num_points < 200:
+            print(f"Best plane has too few points ({num_points}), skipping image {img_idx}")
+            continue
+
         # 선택된 평면을 강조하여 시각화
         if best_plane_pcd:
             best_plane_pcd.paint_uniform_color([0, 1, 0])  # 초록색 (체커보드와 평행한 평면)
@@ -283,6 +298,7 @@ for img_idx, file in enumerate(image_files):
         # print("best plane pcd", best_plane_pcd)
         unoptimized_projection_img, projected_points = pcd_projection(unoptimized_image, filtered_plane, intrinsic, distortion, lidar_to_cam)
         pcd_list.append(filtered_plane)
+        img_list.append(file)
         result_path = RESULT_DIRS[0] + f"/unptimized_plane_{img_idx}.jpg"
         print(f"Projected image saved at: {result_path}")
         cv2.imwrite(result_path, unoptimized_projection_img)
@@ -376,8 +392,8 @@ print("Saving optimized transform matrix...")
 np.savetxt("iou_optimized_transform.txt", optimized_T, delimiter=",")
 
 # 최적화된 변환 행렬을 사용하여 포인트 클라우드 변환
-for i in range(len(image_files)):
-    image = cv2.imread(image_files[i])
+for i in range(len(img_list)):
+    image = cv2.imread(img_list[i])
     pcd = o3d.io.read_point_cloud(pointcloud_files[i])
     # 이미지에 최적화된 변환 적용
     optimized_image, _ = pcd_projection(image, pcd, intrinsic, distortion, optimized_T)
@@ -386,8 +402,8 @@ for i in range(len(image_files)):
     cv2.imwrite(result_path, optimized_image)
 
 # 최적화된 평면 시각화
-for i in range(len(image_files)):
-    image = cv2.imread(image_files[i])
+for i in range(len(img_list)):
+    image = cv2.imread(img_list[i])
     pcd = pcd_list[i]
     #print("pcd:", pcd.has_points())
     image_T = image_T_list[i]
